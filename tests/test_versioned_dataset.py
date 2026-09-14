@@ -93,6 +93,48 @@ class VersionedDatasetTests(unittest.TestCase):
                 rows[0]["event_id"]
             )
 
+    def test_version_supports_multiple_sources_and_is_order_invariant(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first_raw = root / "first.csv"
+            second_raw = root / "second.csv"
+            first_raw.write_text(CSV, encoding="utf-8")
+            second_raw.write_text(
+                CSV.replace("Alpha", "Echo").replace("Beta", "Foxtrot"),
+                encoding="utf-8",
+            )
+
+            first = SourceInput(
+                season="2324",
+                league="E0",
+                source_url="https://example.test/2324.csv",
+                sha256=hashlib.sha256(first_raw.read_bytes()).hexdigest(),
+                raw_path=first_raw.as_posix(),
+                retrieved_at="2026-01-01T00:00:00+00:00",
+            )
+            second = SourceInput(
+                season="2425",
+                league="E0",
+                source_url="https://example.test/2425.csv",
+                sha256=hashlib.sha256(second_raw.read_bytes()).hexdigest(),
+                raw_path=second_raw.as_posix(),
+                retrieved_at="2026-01-01T00:00:00+00:00",
+            )
+
+            forward = build_versioned_dataset(
+                [first, second],
+                root / "forward",
+            )
+            reverse = build_versioned_dataset(
+                [second, first],
+                root / "reverse",
+            )
+
+            self.assertEqual(
+                forward.dataset_version,
+                reverse.dataset_version,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
