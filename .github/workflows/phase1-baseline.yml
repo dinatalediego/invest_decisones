@@ -1,0 +1,60 @@
+name: Phase 1 Dataset + Elo Baseline
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "tests/**"
+      - "configs/**"
+      - ".github/workflows/phase1-baseline.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e .
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Build real versioned EPL dataset and Elo baseline
+        run: |
+          python scripts/build_phase1_baseline.py \
+            --season 2223:E0 \
+            --season 2324:E0 \
+            --season 2425:E0 \
+            --season 2526:E0 \
+            --test-season 2526 \
+            --output-dir reports/generated/phase1
+
+      - name: Show scientific report
+        if: always()
+        run: |
+          if [ -f reports/generated/phase1/PHASE1_BASELINE_REPORT.md ]; then
+            cat reports/generated/phase1/PHASE1_BASELINE_REPORT.md
+          fi
+
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-dataset-elo-evidence
+          path: reports/generated/phase1/
+          if-no-files-found: warn
+          retention-days: 14
