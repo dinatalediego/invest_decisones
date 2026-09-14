@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from src.invest_decisones.data.football_data import artifact_as_dict, download_dataset
+from invest_decisones.data.football_data import artifact_as_dict, download_dataset
 
 
 def parse_args() -> argparse.Namespace:
