@@ -1,0 +1,150 @@
+schema_version: 1
+policy:
+  initial_budget_usd: 0
+  paid_sources_require_decision_memo: true
+  raw_data_immutable: true
+  default_status: candidate
+
+sources:
+  football_data_co_uk:
+    provider: Football-Data.co.uk
+    url: https://www.football-data.co.uk/
+    tier: 0
+    free_or_paid: free
+    price: 0
+    role:
+      - historical_results
+      - match_statistics
+      - historical_odds
+      - opening_preclosing_odds
+      - closing_odds
+    historical_depth:
+      results_from: "1993/94"
+      odds_note: "Historical odds available for many leagues/seasons; verify field-level coverage before each study."
+    timestamp_quality: medium
+    api_limits: null
+    redistribution_allowed: unknown_verify_terms
+    attribution_required: verify_terms
+    license: verify_terms_before_redistribution
+    reliability: primary_candidate
+    known_biases:
+      - "Odds are snapshots/columns, not a complete intraday order book."
+      - "Provider warns that Pinnacle public-API odds have been systematically stale since 2025-07-23; do not treat them as default sharp-market truth without validation."
+      - "Earlier seasons may not contain both early and closing snapshots."
+    status: selected_for_phase_0
+
+  statsbomb_open_data:
+    provider: StatsBomb Open Data
+    url: https://github.com/hudl/open-data
+    tier: 0
+    free_or_paid: free
+    price: 0
+    role:
+      - event_data
+      - lineups
+      - selected_360_data
+    historical_depth: selected_competitions_and_seasons
+    timestamp_quality: match_event
+    api_limits: null
+    redistribution_allowed: governed_by_open_data_terms
+    attribution_required: true
+    license: "Open-data terms require source attribution; verify latest terms before publication/distribution."
+    reliability: strong_for_covered_competitions
+    known_biases:
+      - "Coverage is selected, not universal."
+      - "360 data exists only for selected matches."
+    status: selected_auxiliary
+
+  football_data_org:
+    provider: football-data.org
+    url: https://www.football-data.org/
+    tier: 0
+    free_or_paid: free
+    price: 0
+    role:
+      - fixtures
+      - delayed_schedules
+      - league_tables
+    historical_depth: limited_on_free_tier
+    timestamp_quality: current_api
+    api_limits:
+      calls_per_minute: 10
+      competitions_free: 12
+    redistribution_allowed: verify_terms
+    attribution_required: verify_terms
+    license: verify_terms
+    reliability: auxiliary
+    known_biases:
+      - "Free plan is intentionally limited in coverage/depth."
+    status: selected_auxiliary
+
+  api_football:
+    provider: API-Football
+    url: https://www.api-football.com/
+    tier: 0
+    free_or_paid: free
+    price: 0
+    role:
+      - fixtures
+      - lineups
+      - injuries
+      - prematch_odds
+      - statistics
+    historical_depth: recent_seasons_limited_on_free_tier
+    timestamp_quality: current_api
+    api_limits:
+      requests_per_day: 100
+    redistribution_allowed: verify_terms
+    attribution_required: verify_terms
+    license: verify_terms
+    reliability: experimental_auxiliary
+    known_biases:
+      - "Free plan has limited historical range."
+      - "Quota is too small for careless bulk ingestion."
+    status: candidate
+
+  the_odds_api_historical:
+    provider: The Odds API
+    url: https://the-odds-api.com/
+    tier: 2
+    free_or_paid: paid_for_historical
+    price: verify_current_plan_before_purchase
+    role:
+      - historical_point_in_time_odds
+      - intraday_market_snapshots
+    historical_depth:
+      featured_markets_from: "2020-06-06"
+      snapshot_interval_early: "10 minutes"
+      snapshot_interval_from_2022_09: "5 minutes"
+    timestamp_quality: high
+    api_limits: plan_dependent
+    redistribution_allowed: verify_terms
+    attribution_required: verify_terms
+    license: verify_terms
+    reliability: escalation_candidate
+    known_biases:
+      - "Historical endpoint is paid."
+      - "Coverage depends on sport, bookmaker, region and market."
+    status: blocked_until_data_purchase_decision_memo
+
+  betfair_historical:
+    provider: Betfair Historical Data
+    url: https://historicdata.betfair.com/
+    tier: 2
+    free_or_paid: paid
+    price: verify_purchase_scope
+    role:
+      - exchange_historical_prices
+      - exchange_market_microstructure
+      - settlement
+    historical_depth: "approximately 2015 onward; verify product-specific start date"
+    timestamp_quality: high
+    api_limits: purchased_data_scope
+    redistribution_allowed: verify_terms
+    attribution_required: verify_terms
+    license: verify_terms
+    reliability: escalation_candidate
+    known_biases:
+      - "Requires Betfair account and purchased historical packages."
+      - "Exchange prices are not identical to sportsbook executable prices."
+    status: blocked_until_data_purchase_decision_memo
