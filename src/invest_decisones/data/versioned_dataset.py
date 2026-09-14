@@ -110,7 +110,14 @@ def _mean(values: list[float]) -> float | None:
 def _dataset_version(sources: Iterable[SourceInput]) -> str:
     identity = {
         "schema_version": CANONICAL_SCHEMA_VERSION,
-        "source_hashes": sorted(source.sha256 for source in sources),
+        "sources": sorted(
+            {
+                "season": source.season,
+                "league": source.league,
+                "sha256": source.sha256,
+            }
+            for source in sources
+        ),
     }
     digest = hashlib.sha256(
         json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
