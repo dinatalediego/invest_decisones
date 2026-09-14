@@ -1,0 +1,69 @@
+schema_version: 1
+
+experiment_template:
+  experiment_id: null
+  registered_at: null
+  status: preregistered
+
+  hypothesis:
+    statement: null
+    economic_rationale: null
+    falsification_condition: null
+
+  data:
+    dataset_version: null
+    raw_manifest_hash: null
+    training_start: null
+    training_end: null
+    validation_start: null
+    validation_end: null
+    test_start: null
+    test_end: null
+    competitions: []
+    markets: []
+    sources: []
+
+  point_in_time:
+    prediction_time_policy: null
+    odds_selection_policy: latest_observation_at_or_before_prediction_time
+    bookmaker_policy: null
+    leakage_checks_required: true
+
+  model:
+    family: null
+    features: []
+    hyperparameters: {}
+    calibration_method: null
+
+  strategy:
+    ev_threshold: null
+    staking_method: null
+    max_stake_fraction: null
+    execution_cost_model: null
+
+  primary_metric: null
+  secondary_metrics:
+    - brier_score
+    - log_loss
+    - clv
+    - roi
+    - yield
+    - max_drawdown
+
+  evidence:
+    uncertainty_method: null
+    confidence_level: 0.95
+    minimum_sample_size: null
+
+  outcomes:
+    completed_at: null
+    result_summary: null
+    negative_result_retained: true
+    artifact_paths: []
+
+rules:
+  - "register before running the final test"
+  - "do not rewrite hypotheses after observing test results"
+  - "retain failed and negative experiments"
+  - "new thresholds after test inspection require a new experiment_id"
+  - "paid data may not be introduced without an approved purchase memo"
