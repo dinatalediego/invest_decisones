@@ -1,0 +1,89 @@
+schema_version: 1
+
+purpose: >
+  Build a project-owned point-in-time odds history without assuming that
+  retrospective daily-best prices were executable.
+
+budget:
+  acquisition_usd: 0
+  paid_fallback_allowed: false
+
+decision_horizons:
+  - id: T48H
+    target_offset_minutes: -2880
+    tolerance_minutes: 120
+  - id: T24H
+    target_offset_minutes: -1440
+    tolerance_minutes: 90
+  - id: T6H
+    target_offset_minutes: -360
+    tolerance_minutes: 45
+  - id: T1H
+    target_offset_minutes: -60
+    tolerance_minutes: 20
+  - id: CLOSE
+    target_offset_minutes: -5
+    tolerance_minutes: 10
+
+required_fields:
+  - source
+  - source_record_id
+  - event_id
+  - bookmaker
+  - venue_type
+  - market
+  - selection
+  - line
+  - odds_decimal
+  - observed_at
+  - available_at
+  - ingested_at
+  - retrieval_timestamp
+  - raw_hash
+  - schema_version
+
+optional_fields:
+  - bookmaker_updated_at
+  - opening_flag
+  - closing_flag
+  - commission
+  - liquidity
+  - max_stake
+  - currency
+
+validity_rules:
+  - "available_at <= prediction_time"
+  - "odds_decimal > 1.0"
+  - "never select a future observation relative to prediction_time"
+  - "never select the best price over a future/full-day window"
+  - "preserve bookmaker identity"
+  - "preserve raw payload hash"
+  - "do not silently impute missing historical timestamps"
+
+selection_policy:
+  default: latest_observation_at_or_before_prediction_time
+  line_shopping: disabled_until_explicitly_preregistered
+  bookmaker_consensus: disabled_until_method_is_preregistered
+
+raw_storage:
+  immutable: true
+  overwrite_existing_snapshot: false
+  deduplicate_by:
+    - source
+    - source_record_id
+    - retrieval_timestamp
+    - raw_hash
+
+quality_flags:
+  - stale_quote
+  - timestamp_inferred
+  - missing_bookmaker_updated_at
+  - missing_liquidity
+  - source_delay_unknown
+  - market_mapping_uncertain
+
+activation:
+  scheduled_capture_enabled: false
+  reason: >
+    Enable only after a free current-odds source and its API credentials/terms
+    have been validated. The first scheduler must remain within the free quota.
