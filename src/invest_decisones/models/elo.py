@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict, dataclass
+from itertools import groupby
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,9 @@ def _float(row: dict[str, str], field: str) -> float | None:
 
 
 def _prob_home_conditional(
-    home_rating: float, away_rating: float, config: EloConfig
+    home_rating: float,
+    away_rating: float,
+    config: EloConfig,
 ) -> float:
     diff = home_rating + config.home_advantage_points - away_rating
     return 1.0 / (1.0 + 10.0 ** (-diff / config.rating_scale))
@@ -46,7 +49,8 @@ def _devig_decimal(
 
 
 def _metrics(
-    records: list[dict[str, Any]], prefix: str = "p_"
+    records: list[dict[str, Any]],
+    prefix: str = "p_",
 ) -> dict[str, float | int | None]:
     if not records:
         return {
@@ -66,7 +70,6 @@ def _metrics(
         actual = record["result"]
         predicted = labels[max(range(3), key=lambda idx: probs[idx])]
         correct += int(predicted == actual)
-
         brier += sum(
             (prob - float(label == actual)) ** 2
             for prob, label in zip(probs, labels)
@@ -138,7 +141,12 @@ def run_elo_baseline(
     test_season: str,
     config: EloConfig | None = None,
 ) -> dict[str, Any]:
-    """Run chronological Elo with prediction before each rating update."""
+    """Run daily-batched chronological Elo with no same-day outcome leakage.
+
+    All probabilities for a calendar date are computed from the state available
+    before any result on that date is applied. This is deliberately conservative:
+    it prevents simultaneous or unknown-kickoff-order matches from leaking outcomes.
+    """
     config = config or EloConfig()
 
     ordered = sorted(
@@ -161,7 +169,6 @@ def run_elo_baseline(
         raise ValueError(f"No rows for test season {test_season}")
 
     first_test_date = min(test_dates)
-
     train_rows = [
         row
         for row in ordered
@@ -186,18 +193,11 @@ def run_elo_baseline(
     predictions: list[dict[str, Any]] = []
     market_records: list[dict[str, Any]] = []
 
-    for row in ordered:
-        home = row["home_team"]
-        away = row["away_team"]
-
-        home_rating = ratings.get(home, config.initial_rating)
-        away_rating = ratings.get(away, config.initial_rating)
-
-        p_home_cond = _prob_home_conditional(
-            home_rating,
-            away_rating,
-            config,
-        )
+    for match_date, date_rows_iter in groupby(
+        ordered,
+        key=lambda row: row["date"],
+    ):
+        date_rows = list(date_rows_iter)
 
         draw_prob = (
             historical_draws
@@ -208,61 +208,122 @@ def run_elo_baseline(
         )
         draw_prob = min(max(draw_prob, 0.10), 0.40)
 
-        p_home = (1.0 - draw_prob) * p_home_cond
-        p_away = (1.0 - draw_prob) * (1.0 - p_home_cond)
+        pending_updates: list[
+            tuple[str, str, float, float, float, str]
+        ] = []
 
-        is_test = row["season"] == test_season
+        for row in date_rows:
+            home = row["home_team"]
+            away = row["away_team"]
 
-        if is_test:
-            record: dict[str, Any] = {
-                "event_id": row["event_id"],
-                "date": row["date"],
-                "home_team": home,
-                "away_team": away,
-                "result": row["result"],
-                "home_rating_pre": home_rating,
-                "away_rating_pre": away_rating,
-                "p_h": p_home,
-                "p_d": draw_prob,
-                "p_a": p_away,
-                "prior_h": prior_probs["H"],
-                "prior_d": prior_probs["D"],
-                "prior_a": prior_probs["A"],
-            }
-            predictions.append(record)
+            home_rating = ratings.get(
+                home,
+                config.initial_rating,
+            )
+            away_rating = ratings.get(
+                away,
+                config.initial_rating,
+            )
 
-            market = _market_probs(row)
-            if market is not None:
-                probs, market_group = market
-                market_records.append(
-                    {
-                        "event_id": row["event_id"],
-                        "result": row["result"],
-                        "m_h": probs[0],
-                        "m_d": probs[1],
-                        "m_a": probs[2],
-                        "market_group": market_group,
-                    }
+            p_home_cond = _prob_home_conditional(
+                home_rating,
+                away_rating,
+                config,
+            )
+            p_home = (1.0 - draw_prob) * p_home_cond
+            p_away = (1.0 - draw_prob) * (1.0 - p_home_cond)
+
+            if row["season"] == test_season:
+                record: dict[str, Any] = {
+                    "event_id": row["event_id"],
+                    "date": match_date,
+                    "home_team": home,
+                    "away_team": away,
+                    "result": row["result"],
+                    "home_rating_pre": home_rating,
+                    "away_rating_pre": away_rating,
+                    "p_h": p_home,
+                    "p_d": draw_prob,
+                    "p_a": p_away,
+                    "prior_h": prior_probs["H"],
+                    "prior_d": prior_probs["D"],
+                    "prior_a": prior_probs["A"],
+                }
+                predictions.append(record)
+
+                market = _market_probs(row)
+                if market is not None:
+                    probs, market_group = market
+                    market_records.append(
+                        {
+                            "event_id": row["event_id"],
+                            "result": row["result"],
+                            "m_h": probs[0],
+                            "m_d": probs[1],
+                            "m_a": probs[2],
+                            "market_group": market_group,
+                        }
+                    )
+
+            pending_updates.append(
+                (
+                    home,
+                    away,
+                    home_rating,
+                    away_rating,
+                    p_home_cond,
+                    row["result"],
                 )
+            )
 
-        actual_score = {
-            "H": 1.0,
-            "D": 0.5,
-            "A": 0.0,
-        }[row["result"]]
+        # Apply the entire day's results only after all daily predictions exist.
+        rating_deltas: dict[str, float] = {}
+        day_draws = 0
 
-        delta = config.k_factor * (
-            actual_score - p_home_cond
-        )
+        for (
+            home,
+            away,
+            home_rating,
+            away_rating,
+            p_home_cond,
+            result,
+        ) in pending_updates:
+            actual_score = {
+                "H": 1.0,
+                "D": 0.5,
+                "A": 0.0,
+            }[result]
 
-        ratings[home] = home_rating + delta
-        ratings[away] = away_rating - delta
+            delta = config.k_factor * (
+                actual_score - p_home_cond
+            )
 
-        historical_matches += 1
-        historical_draws += int(row["result"] == "D")
+            rating_deltas[home] = (
+                rating_deltas.get(home, 0.0) + delta
+            )
+            rating_deltas[away] = (
+                rating_deltas.get(away, 0.0) - delta
+            )
+            day_draws += int(result == "D")
 
-    elo_metrics = _metrics(predictions, prefix="p_")
-    elo_metrics["ece_top_label"] = _top_label_ece(predictions)
+        # A team normally plays once per day; additive deltas also make this safe
+        # for duplicated/special schedules without sequential within-day leakage.
+        for team, delta in rating_deltas.items():
+            ratings[team] = ratings.get(
+                team,
+                config.initial_rating,
+            ) + delta
+
+        historical_matches += len(date_rows)
+        historical_draws += day_draws
+
+    elo_metrics = _metrics(
+        predictions,
+        prefix="p_",
+    )
+    elo_metrics["ece_top_label"] = _top_label_ece(
+        predictions
+    )
 
     prior_records = [
         {
@@ -273,18 +334,29 @@ def run_elo_baseline(
         }
         for record in predictions
     ]
-    prior_metrics = _metrics(prior_records, prefix="q_")
-    market_metrics = _metrics(market_records, prefix="m_")
+    prior_metrics = _metrics(
+        prior_records,
+        prefix="q_",
+    )
+    market_metrics = _metrics(
+        market_records,
+        prefix="m_",
+    )
 
     market_groups: dict[str, int] = {}
     for record in market_records:
         market_groups[record["market_group"]] = (
-            market_groups.get(record["market_group"], 0) + 1
+            market_groups.get(
+                record["market_group"],
+                0,
+            )
+            + 1
         )
 
     return {
         "model": "elo_baseline_v0.1",
         "status": "baseline_challenger",
+        "temporal_update_policy": "daily_batch",
         "test_season": test_season,
         "first_test_date": first_test_date,
         "train_matches": len(train_rows),
