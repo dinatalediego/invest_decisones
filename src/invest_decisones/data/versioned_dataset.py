@@ -111,12 +111,19 @@ def _dataset_version(sources: Iterable[SourceInput]) -> str:
     identity = {
         "schema_version": CANONICAL_SCHEMA_VERSION,
         "sources": sorted(
-            {
-                "season": source.season,
-                "league": source.league,
-                "sha256": source.sha256,
-            }
-            for source in sources
+            (
+                {
+                    "season": source.season,
+                    "league": source.league,
+                    "sha256": source.sha256,
+                }
+                for source in sources
+            ),
+            key=lambda item: (
+                item["season"],
+                item["league"],
+                item["sha256"],
+            ),
         ),
     }
     digest = hashlib.sha256(
