@@ -1,6 +1,6 @@
 import unittest
 
-from src.invest_decisones.data.football_data import (
+from invest_decisones.data.football_data import (
     build_url,
     profile_csv_bytes,
     sha256_bytes,
