@@ -1,0 +1,58 @@
+schema_version: 1
+dataset_contract: epl_football_data_v0.1
+provider: Football-Data.co.uk
+league: E0
+competition: English Premier League
+seasons:
+  - "2223"
+  - "2324"
+  - "2425"
+  - "2526"
+test_season: "2526"
+
+versioning:
+  algorithm: sha256
+  identity_inputs:
+    - canonical_schema_version
+    - ordered_source_content_hashes
+  retrieval_timestamp_affects_version: false
+
+canonical_required_fields:
+  - event_id
+  - season
+  - league
+  - date
+  - home_team
+  - away_team
+  - home_goals
+  - away_goals
+  - result
+
+market_quality_groups:
+  b365_pre: [B365H, B365D, B365A]
+  average_pre: [AvgH, AvgD, AvgA]
+  maximum_pre: [MaxH, MaxD, MaxA]
+  pinnacle_pre: [PSH, PSD, PSA]
+  b365_close: [B365CH, B365CD, B365CA]
+  average_close: [AvgCH, AvgCD, AvgCA]
+  maximum_close: [MaxCH, MaxCD, MaxCA]
+  pinnacle_close: [PSCH, PSCD, PSCA]
+
+elo_baseline:
+  initial_rating: 1500
+  k_factor: 20
+  home_advantage_points: 75
+  rating_scale: 400
+  draw_prior: 0.25
+  draw_prior_strength: 50
+  hyperparameters_tuned_on_test: false
+
+market_benchmark:
+  preferred_group: average_close
+  fallback_group: average_pre
+  method: proportional_devig
+
+research_status:
+  real_money: prohibited
+  model_status: baseline_challenger
+  promotion_requires_out_of_sample_evidence: true
