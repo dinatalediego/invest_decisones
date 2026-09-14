@@ -4,7 +4,7 @@ Quantitative sports-market research project focused on one question:
 
 > **Is there a statistically exploitable inefficiency that survives out-of-sample testing, execution frictions, costs, and risk?**
 
-This repository starts as a **paper-trading / research system only**. It does not place bets automatically and does not assume that a profitable strategy exists.
+This repository is a **paper-trading / research system only**. It does not place bets automatically and does not assume that a profitable strategy exists.
 
 ## Current operating principles
 
@@ -60,17 +60,72 @@ Paid data is not a dependency of the MVP. Any paid source requires a **Data Purc
 ## Repository governance
 
 - `configs/data_sources.yml` — source registry.
+- `configs/datasets/epl_football_data_v0.1.yml` — first dataset/model contract.
 - `configs/odds_snapshot_policy.yml` — point-in-time odds capture contract.
 - `configs/experiment_registry.yml` — experiment preregistration template.
 - `docs/research_contract.md` — approved research/data contract.
 - `docs/DATA_SOURCE_DECISION_MEMO.md` — source decision template.
+- `docs/runs/PHASE1_EPL_ELO_V0.1.md` — verified first experiment.
 
-## First proof
+## Phase 1 — verified
 
-Before adding advanced models or paid data, demonstrate:
+The first complete vertical slice is reproducible:
 
-**Elo → Poisson → probabilities → calibration → odds → de-vig → EV → decision time → backtest → CLV → uncertainty.**
+**Football-Data → immutable RAW → SHA-256 → versioned EPL dataset → quality audit → Elo → OOS evaluation → market benchmark.**
+
+Accepted dataset identity:
+
+`fd_epl_v0.1_504af51e6c95`
+
+Coverage:
+
+- 4 complete EPL seasons;
+- 1,520 canonical matches;
+- 1,140 historical training matches;
+- 380 out-of-sample matches in 2025/26;
+- 100% coverage for Avg 1X2 pre and closing odds;
+- zero invalid canonical rows.
+
+2025/26 out-of-sample:
+
+| Benchmark | Brier ↓ | Log Loss ↓ |
+|---|---:|---:|
+| Constant train prior | 0.6563 | 1.0845 |
+| Elo v0.1 | 0.6156 | 1.0260 |
+| De-vigged Avg closing market | **0.6077** | **1.0118** |
+
+Conclusion:
+
+> Elo contains useful predictive signal and beats the naive prior, but it does not beat the closing market. No betting edge is claimed.
+
+## Reproduce Phase 1
+
+```bash
+python -m pip install -e .
+
+python -m unittest discover -s tests -p "test_*.py" -v
+
+python scripts/build_phase1_baseline.py \
+  --season 2223:E0 \
+  --season 2324:E0 \
+  --season 2425:E0 \
+  --season 2526:E0 \
+  --test-season 2526 \
+  --output-dir reports/generated/phase1
+```
+
+Generated external data and RAW files remain outside Git.
+
+## Next gate
+
+Build independent Poisson first, then evaluate whether Dixon-Coles is justified.
+
+The broader research path remains:
+
+**Elo → Poisson → calibration → odds → de-vig → EV → decision time → backtest → CLV → uncertainty.**
 
 ## Status
 
-Foundation / Phase 0. No paid data source has been approved.
+**Phase 1 closed / Phase 2 ready.**
+
+No paid data source and no real-money betting have been approved.
